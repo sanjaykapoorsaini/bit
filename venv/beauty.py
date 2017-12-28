@@ -6,10 +6,12 @@ import logging
 import re
 from selenium import webdriver
 
+
 def export():
     df = DataFrame({'Name': _name, 'Link': _link, 'Project Type': project,
                     'End Date': end_date, 'Start Date': start_date, 'Category': category,
-                    'Platform': platform, 'Total Supply': total_supply, 'Twitter Count':followers_count
+                    'Platform': platform, 'Total Supply': total_supply, 'Twitter Count': twitter_count,
+                    'FB Count': fb_count, 'Twitter Handle': twitter_handle
                     })
 
     df.to_excel('bit.xlsx', sheet_name='sheet1', index=False)
@@ -23,7 +25,11 @@ category = []
 total_supply = []
 end_date = []
 start_date = []
-followers_count =[]
+twitter_count = []
+fb_count = []
+twitter_handle = []
+_access_token = 'EAACEdEose0cBAFVlII3WHaV4hGnnXeRmP2W8DtRavDP3vMcgQml06ZAX5Ik5FPY9m8Lra50xkIHGZAPPQpBDZBSQEpni7wJfl8TqbwrLDkcwI65OedMbZCB43y0jjb2qfvW9UgKGjjZAuct6QaoEUa72et2qJ4Ct2NZBj0eSdAIB1EU3tPQhBjsphqFI82LZBvdHjSp1JnaeQZDZD'
+
 
 def getDataFromLinks(name_link_map):
     for name, link in name_link_map.iteritems():
@@ -34,50 +40,56 @@ def getDataFromLinks(name_link_map):
             _link.append(link)
             data = r.text
             soup = BeautifulSoup(data, 'lxml')
-            detail = {'project': '', 'platform': '', 'category': '', 'supply': '', 'start': '', 'end': '','followers_count': ''}
+            detail = {'project': '', 'platform': '', 'category': '', 'supply': '', 'start': '', 'end': '',
+                      'twitter_count': '', 'twitter_handle': '', 'fb_count': ''}
             for x in soup.findAll("div", {"class": "infoitem"}):
                 if 'Project Type' in x.text:
                     detail['project'] = x.text.replace('Project Type', '')
-                if 'Platform' in x.text:
+                elif 'Platform' in x.text:
                     detail['platform'] = x.text.replace('Platform', '')
-                if 'Category' in x.text:
+                elif 'Category' in x.text:
                     detail['category'] = x.text.replace('Category', '')
-                if 'Total Supply' in x.text:
+                elif 'Total Supply' in x.text:
                     detail['supply'] = x.text.replace('Total Supply', '')
-                if 'Start Date' in x.text:
+                elif 'Start Date' in x.text:
                     detail['start'] = x.text.replace('Start Date', '').replace('- -Days- -Hours- -Mins- -Secs', '')
-                if 'End Date' in x.text:
+                elif 'End Date' in x.text:
                     detail['end'] = x.text.replace('End Date', '').replace('- -Days- -Hours- -Mins- -Secs', '')
-                if 'Website' in x.text:
-                    web_link = x.find_all('a', attrs={'href': re.compile("^https://")})
-                    flag=False
+                elif 'WebsiteOpen' in x.text:
+                    web_link = x.find('a', attrs={'href': re.compile("^https://")})
                     if web_link:
-                        h = web_link[0].get('href')
+                        h = web_link.get('href')
                         print 'web_link ' + str(h)
-                        browser = webdriver.PhantomJS('C:\Users\Harit\Downloads\phantomjs-2.1.1-windows\bin\phantomjs')
-                        browser.get(h)
-                        html = browser.page_source
+                        data = requests.get(h, verify=False)
+                        if data.text.find('twitter.com') > 0:
+                            html = data.text
+                        else:
+                            browser = webdriver.PhantomJS()
+                            browser.get(h)
+                            html = browser.page_source
                         s = BeautifulSoup(html, 'lxml')
-                        twitter_link = s.find_all('a', attrs={'href': re.compile("twitter\.com")})
+                        twitter_link = s.find('a', attrs={'href': re.compile("twitter\.com")})
+                        fb_link = s.find('a', attrs={'href': re.compile("facebook\.com")})
                         if twitter_link:
-                            h1= twitter_link[0].get('href')
-                            print 'twitter_link ' + str(h1.split('/'))
-                            user_name = h1.replace('https://www.twitter.com/','')
-                            print 'user_name ' + user_name
-                            twiter_json_link = 'https://cdn.syndication.twimg.com/widgets/followbutton/info.json?screen_names='+user_name
+                            h1 = twitter_link.get('href')
+                            user_name = h1.split('/')[3]
+                            detail['twitter_handle'] = user_name
+                            twiter_json_link = 'https://cdn.syndication.twimg.com/widgets/followbutton/info.json?screen_names=' + user_name.replace(
+                                '@', '')
                             json_obj = json.loads(requests.get(twiter_json_link).text)
-                            print 'json_obj ' + str(json_obj)
-                            flag = True
-                    if flag and json_obj:
-                        detail['followers_count'] = str(json_obj[0][u'followers_count'])
-                        print 'followers_count ' + str(followers_count)
-                    else:
-                        detail['followers_count'] =''
-
-
-
-
-
+                            if json_obj:
+                                detail['twitter_count'] = str(json_obj[0][u'followers_count'])
+                            else:
+                                detail['twitter_count'] = ''
+                        if fb_link:
+                            _fb = fb_link.get('href')
+                            fb_graph_url = "https://graph.facebook.com/v2.4/" + _fb.split('/')[
+                                3] + "?fields=id,name,likes,link&access_token=" + _access_token
+                            fb_json_obj = json.loads(requests.get(fb_graph_url).text)
+                            if not fb_json_obj.get('error', ''):
+                                detail['fb_count'] = str(fb_json_obj[u'likes'])
+                            else:
+                                detail['fb_count'] = ''
 
             project.append(detail['project'])
             platform.append(detail['platform'])
@@ -85,7 +97,9 @@ def getDataFromLinks(name_link_map):
             total_supply.append(detail['supply'])
             start_date.append(detail['start'])
             end_date.append(detail['end'])
-            followers_count.append(detail['followers_count'])
+            twitter_count.append(detail['twitter_count'])
+            fb_count.append(detail['fb_count'])
+            twitter_handle.append(detail['twitter_handle'])
         except Exception as e:
             print 'EXCEPTION ' + str(link)
             logging.exception("message")
@@ -112,5 +126,3 @@ def start():
 
 if __name__ == '__main__':
     start()
-
-
