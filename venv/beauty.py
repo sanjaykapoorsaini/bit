@@ -4,6 +4,7 @@ from pandas import DataFrame
 import json
 import logging
 import re
+from selenium import webdriver
 
 def export():
     df = DataFrame({'Name': _name, 'Link': _link, 'Project Type': project,
@@ -53,12 +54,14 @@ def getDataFromLinks(name_link_map):
                     if web_link:
                         h = web_link[0].get('href')
                         print 'web_link ' + str(h)
-                        d = requests.get(h)
-                        s = BeautifulSoup(d.text, 'lxml')
-                        twitter_link = s.find_all('a', attrs={'href': re.compile("^https://www.twitter.com/")})
+                        browser = webdriver.PhantomJS('C:\Users\Harit\Downloads\phantomjs-2.1.1-windows\bin\phantomjs')
+                        browser.get(h)
+                        html = browser.page_source
+                        s = BeautifulSoup(html, 'lxml')
+                        twitter_link = s.find_all('a', attrs={'href': re.compile("twitter\.com")})
                         if twitter_link:
                             h1= twitter_link[0].get('href')
-                            print 'twitter_link ' + str(h1)
+                            print 'twitter_link ' + str(h1.split('/'))
                             user_name = h1.replace('https://www.twitter.com/','')
                             print 'user_name ' + user_name
                             twiter_json_link = 'https://cdn.syndication.twimg.com/widgets/followbutton/info.json?screen_names='+user_name
