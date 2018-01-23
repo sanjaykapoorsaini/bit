@@ -4,6 +4,7 @@ from pandas import DataFrame
 import json
 import logging
 import re
+import time
 from selenium import webdriver
 
 
@@ -13,8 +14,8 @@ def export():
                     'Platform': platform, 'Total Supply': total_supply, 'Twitter Count': twitter_count,
                     'FB Count': fb_count, 'Twitter Handle': twitter_handle
                     })
-
-    df.to_excel('bit.xlsx', sheet_name='sheet1', index=False)
+    excel_sheet_name = 'bit_{time}.xlsx'.format(time=time.strftime("%Y-%m-%d@%H-%M"))
+    df.to_excel(excel_sheet_name, sheet_name='sheet1', index=False)
 
 
 _name = []
@@ -28,16 +29,15 @@ start_date = []
 twitter_count = []
 fb_count = []
 twitter_handle = []
-_access_token = 'EAACEdEose0cBAFVlII3WHaV4hGnnXeRmP2W8DtRavDP3vMcgQml06ZAX5Ik5FPY9m8Lra50xkIHGZAPPQpBDZBSQEpni7wJfl8TqbwrLDkcwI65OedMbZCB43y0jjb2qfvW9UgKGjjZAuct6QaoEUa72et2qJ4Ct2NZBj0eSdAIB1EU3tPQhBjsphqFI82LZBvdHjSp1JnaeQZDZD'
+_access_token = 'EAAC122qUL0kBALA7GnQjmfHon7cDqnaZCLhiETKFZCEsEd7wv27zpOgO70e3UbdzI1wEMEpTVL8QPhXzKViaXiznERUMkx3ZCevkI0LEY68ePJaoLsB1wIBGrkT6GWWY6D5n1n9Bq4nPxib5ZAFJFaHA3pp2pJWTb9k8mfTehgZDZD'
 
 
 def getDataFromLinks(name_link_map):
+    browser = webdriver.PhantomJS()
     for name, link in name_link_map.iteritems():
         try:
             print link
             r = requests.get(link)
-            _name.append(name)
-            _link.append(link)
             data = r.text
             soup = BeautifulSoup(data, 'lxml')
             detail = {'project': '', 'platform': '', 'category': '', 'supply': '', 'start': '', 'end': '',
@@ -56,7 +56,7 @@ def getDataFromLinks(name_link_map):
                 elif 'End Date' in x.text:
                     detail['end'] = x.text.replace('End Date', '').replace('- -Days- -Hours- -Mins- -Secs', '')
                 elif 'WebsiteOpen' in x.text:
-                    web_link = x.find('a', attrs={'href': re.compile("^https://")})
+                    web_link = x.find('a', attrs={'href': re.compile("^https?://")})
                     if web_link:
                         h = web_link.get('href')
                         print 'web_link ' + str(h)
@@ -64,7 +64,6 @@ def getDataFromLinks(name_link_map):
                         if data.text.find('twitter.com') > 0:
                             html = data.text
                         else:
-                            browser = webdriver.PhantomJS()
                             browser.get(h)
                             html = browser.page_source
                         s = BeautifulSoup(html, 'lxml')
@@ -83,14 +82,18 @@ def getDataFromLinks(name_link_map):
                                 detail['twitter_count'] = ''
                         if fb_link:
                             _fb = fb_link.get('href')
-                            fb_graph_url = "https://graph.facebook.com/v2.4/" + _fb.split('/')[
-                                3] + "?fields=id,name,likes,link&access_token=" + _access_token
+                            fb_user_name = _fb.split('/')[3]
+                            if fb_user_name.find('-') > 0:
+                                fb_user_name = fb_user_name.split('-')[-1]
+                            fb_graph_url = "https://graph.facebook.com/v2.4/" + fb_user_name \
+                                           + "?fields=id,name,fan_count,link&access_token=" + _access_token
                             fb_json_obj = json.loads(requests.get(fb_graph_url).text)
                             if not fb_json_obj.get('error', ''):
-                                detail['fb_count'] = str(fb_json_obj[u'likes'])
+                                detail['fb_count'] = str(fb_json_obj[u'fan_count'])
                             else:
                                 detail['fb_count'] = ''
-
+            _name.append(name)
+            _link.append(link)
             project.append(detail['project'])
             platform.append(detail['platform'])
             category.append(detail['category'])
