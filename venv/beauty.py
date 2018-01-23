@@ -29,8 +29,7 @@ start_date = []
 twitter_count = []
 fb_count = []
 twitter_handle = []
-_access_token = 'EAAC122qUL0kBALA7GnQjmfHon7cDqnaZCLhiETKFZCEsEd7wv27zpOgO70e3UbdzI1wEMEpTVL8QPhXzKViaXiznERUMkx3ZCevkI0LEY68ePJaoLsB1wIBGrkT6GWWY6D5n1n9Bq4nPxib5ZAFJFaHA3pp2pJWTb9k8mfTehgZDZD'
-
+_access_token = ''
 
 def getDataFromLinks(name_link_map):
     browser = webdriver.PhantomJS()
